@@ -25,6 +25,22 @@ kubectl -n nova create secret generic nova-env --from-env-file=.env
 Pushing to `main` builds the images, publishes them to GHCR and rolls them out
 (`.github/workflows/deploy.yml`).
 
+## Backups
+
+The `db-backup` CronJob copies the Nova database to `/home/backups/nova` on the
+VPS every night and keeps the last 14 copies. They live on the same disk as the
+data: they do not protect against losing the VPS.
+
+To restore one:
+
+```sh
+kubectl -n nova scale deployment/api --replicas=0
+gunzip -c /home/backups/nova/inventory-<date>.sqlite.gz \
+  > "$(kubectl get pv "$(kubectl -n nova get pvc api-data -o jsonpath='{.spec.volumeName}')" \
+       -o jsonpath='{.spec.hostPath.path}{.spec.local.path}')/inventory.sqlite"
+kubectl -n nova scale deployment/api --replicas=1
+```
+
 ## Adding a project
 
 1. Create `infra/k8s/<project>/` with its own namespace.

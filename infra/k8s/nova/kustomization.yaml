@@ -5,3 +5,8 @@ resources:
   - namespace.yaml
   - api.yaml
   - web.yaml
+  - backup.yaml
+configMapGenerator:
+  - name: db-backup
+    files:
+      - backup.js

@@ -1,0 +1,76 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: api-data
+spec:
+  accessModes: [ReadWriteOnce]
+  resources:
+    requests:
+      storage: 2Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: api
+spec:
+  replicas: 1 # SQLite: a single writer, never scale this up.
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: api
+  template:
+    metadata:
+      labels:
+        app: api
+    spec:
+      containers:
+        - name: api
+          image: ghcr.io/nicolasp025/nova-api:latest
+          ports:
+            - containerPort: 3000
+          env:
+            - name: PORT
+              value: '3000'
+            - name: DATABASE_PATH
+              value: /app/data/inventory.sqlite
+          envFrom:
+            - secretRef:
+                name: nova-env
+          volumeMounts:
+            - name: data
+              mountPath: /app/data
+          resources:
+            requests:
+              cpu: 50m
+              memory: 128Mi
+            limits:
+              memory: 512Mi
+          startupProbe: # backfillThumbnails runs before the server listens.
+            httpGet:
+              path: /api
+              port: 3000
+            periodSeconds: 5
+            failureThreshold: 60
+          readinessProbe:
+            httpGet:
+              path: /api
+              port: 3000
+          livenessProbe:
+            httpGet:
+              path: /api
+              port: 3000
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: api-data
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: api # Matches the upstream in apps/web/nginx.conf.
+spec:
+  selector:
+    app: api
+  ports:
+    - port: 3000

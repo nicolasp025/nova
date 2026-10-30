@@ -1,0 +1,55 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: db-backup
+spec:
+  schedule: '17 3 * * *'
+  timeZone: Europe/Paris
+  concurrencyPolicy: Forbid
+  startingDeadlineSeconds: 3600 # Still runs if the node was down at the scheduled time.
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 1
+      template:
+        spec:
+          restartPolicy: Never
+          containers:
+            - name: backup
+              image: ghcr.io/nicolasp025/nova-api:latest # Ships the sqlite3 module.
+              command: [node, /scripts/backup.js]
+              env:
+                - name: NODE_PATH
+                  value: /app/node_modules
+                - name: DATABASE_PATH
+                  value: /app/data/inventory.sqlite
+                - name: BACKUP_DIR
+                  value: /backups
+                - name: BACKUP_RETENTION
+                  value: '14'
+              volumeMounts:
+                - name: data
+                  mountPath: /app/data
+                  readOnly: true
+                - name: backups
+                  mountPath: /backups
+                - name: scripts
+                  mountPath: /scripts
+              resources:
+                requests:
+                  cpu: 50m
+                  memory: 64Mi
+                limits:
+                  memory: 256Mi
+          volumes:
+            - name: data
+              persistentVolumeClaim:
+                claimName: api-data
+            - name: backups
+              hostPath: # Outside the PVC, so it survives the volume being deleted.
+                path: /home/backups/nova
+                type: DirectoryOrCreate
+            - name: scripts
+              configMap:
+                name: db-backup

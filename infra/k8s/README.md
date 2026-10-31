@@ -20,6 +20,13 @@ Secrets are not stored in git. Nova reads them from the `nova-env` secret:
 kubectl -n nova create secret generic nova-env --from-env-file=.env
 ```
 
+The API also receives `AUTH_COOKIE_DOMAIN` and `NEXUS_URL` from its deployment.
+The shared `access_token` cookie is scoped to the parent domain so Nexus can
+reuse Nova's Google login. This intentionally makes the cookie available to
+all `nicolaspotel.dev` subdomains; keep every subdomain under trusted control.
+Nexus delegates session validation to Nova's `/api/auth/me` endpoint and does
+not receive `JWT_SECRET`.
+
 ## Deployment
 
 Pushing to `main` builds the images, publishes them to GHCR and rolls them out

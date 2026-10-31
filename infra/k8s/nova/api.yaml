@@ -31,9 +31,13 @@ spec:
             - containerPort: 3000
           env:
             - name: PORT
-              value: '3000'
+              value: "3000"
             - name: DATABASE_PATH
               value: /app/data/inventory.sqlite
+            - name: AUTH_COOKIE_DOMAIN
+              value: .nicolaspotel.dev
+            - name: NEXUS_URL
+              value: https://nexus.nicolaspotel.dev
           envFrom:
             - secretRef:
                 name: nova-env
